@@ -24,6 +24,7 @@
     "csv-parse": "^7.0.2",
     "dotenv": "^17.2.1",
     "express": "^5.1.0",
+    "marketlens": "file:..",
     "mongoose": "^8.17.1",
     "rss-parser": "^3.13.0",
     "yahoo-finance2": "^4.0.2",

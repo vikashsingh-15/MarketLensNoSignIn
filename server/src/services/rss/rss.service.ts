@@ -265,15 +265,21 @@ async function runNewsScan(): Promise<MarketNewsSummary> {
 }
 
 async function runRecommendationScan(): Promise<MarketNewsSummary> {
-  const publishers = await Publisher.find({ enabled: true, name: { $in: ['ET Markets', 'Moneycontrol', 'Trendlyne'] } });
+  const publishers = await Publisher.find({ enabled: true, name: { $in: ['ET Markets', 'Moneycontrol', 'Trendlyne', 'Mint', 'Business Standard', 'ICICI Direct'] } });
   const summary = emptySummary(publishers.length);
   if (!publishers.length) console.warn('No enabled recommendation publishers found. Run npm run init:data first.');
   const etMarkets = publishers.find((publisher) => publisher.name === 'ET Markets');
   if (etMarkets) await scrapeEtMarketsRecommendations(etMarkets, summary);
   const moneycontrol = publishers.find((publisher) => publisher.name === 'Moneycontrol');
   if (moneycontrol) await scrapeMoneycontrolStockIdeas(moneycontrol, summary);
+  const mint = publishers.find((publisher) => publisher.name === 'Mint');
+  if (mint) await scrapeMoneycontrolStockIdeas(mint, summary);
   const trendlyne = publishers.find((publisher) => publisher.name === 'Trendlyne');
   if (trendlyne) await scrapeTrendlyneRecommendations(trendlyne, summary);
+  const businessStandard = publishers.find((publisher) => publisher.name === 'Business Standard');
+  if (businessStandard) await scrapeStructuredRecommendationTable(businessStandard, summary, 'brokerage');
+  const iciciDirect = publishers.find((publisher) => publisher.name === 'ICICI Direct');
+  if (iciciDirect) await scrapeStructuredRecommendationTable(iciciDirect, summary, 'house');
   console.log('Recommendation ingestion summary:', summary);
   return summary;
 }
@@ -288,6 +294,7 @@ async function scrapeMoneycontrolStockIdeas(publisher: InstanceType<typeof Publi
     : ['https://m.moneycontrol.com/markets/stock-advice/'];
   const discovered = new Map<string, string>();
   for (const listingUrl of listingUrls) {
+    const listingHost = new URL(listingUrl).hostname.replace(/^m\./, '');
     try {
       const { data } = await axios.get<string>(listingUrl, {
         timeout: 15000,
@@ -303,16 +310,16 @@ async function scrapeMoneycontrolStockIdeas(publisher: InstanceType<typeof Publi
         if (!href || !title || !/\b(buy|sell|hold|target|recommend)/i.test(title)) return;
         try {
           const url = new URL(href, listingUrl).toString().split('?')[0];
-          if (url.includes('moneycontrol.com/') && url !== listingUrl) discovered.set(url, title);
+          if (new URL(url).hostname.replace(/^m\./, '').endsWith(listingHost) && url !== listingUrl) discovered.set(url, title);
         } catch { /* ignore malformed links */ }
       });
     } catch (error) {
       summary.errors++;
-      console.warn(`Moneycontrol listing could not be scraped: ${listingUrl} (${requestErrorMessage(error)})`);
+      console.warn(`${publisher.name} listing could not be scraped: ${listingUrl} (${requestErrorMessage(error)})`);
     }
   }
 
-  console.log(`Moneycontrol web scraper: discovered ${discovered.size} recommendation links`);
+  console.log(`${publisher.name} web scraper: discovered ${discovered.size} recommendation links`);
   await processInBatches([...discovered].slice(0, 50), 6, async ([url, title]) => {
     summary.webItems++;
     try {
@@ -340,7 +347,7 @@ async function scrapeMoneycontrolStockIdeas(publisher: InstanceType<typeof Publi
       if (outcome === 'recommendation-duplicate') summary.duplicates++;
       if (outcome === 'normalization-missed') summary.normalizationMisses++;
       if (outcome === 'sentiment-fallback') summary.errors++;
-    } catch (error) { summary.errors++; console.error(`Moneycontrol recommendation failed: ${url}`, error); }
+    } catch (error) { summary.errors++; console.error(`${publisher.name} recommendation failed: ${url}`, error); }
   });
   return [...resolvedSymbols];
 }
@@ -449,6 +456,65 @@ type StructuredRecommendation = {
   recommendation: 'BUY' | 'HOLD' | 'SELL';
   url: string;
 };
+
+function tableColumnIndex(headers: string[], expressions: RegExp[]) {
+  return headers.findIndex((header) => expressions.some((expression) => expression.test(header)));
+}
+
+async function scrapeStructuredRecommendationTable(publisher: InstanceType<typeof Publisher>, summary: {
+  webItems: number; articlesAdded: number; recommendationsCreated: number;
+  duplicates: number; normalizationMisses: number; errors: number;
+}, sourceType: 'brokerage' | 'house') {
+  const listingUrl = publisher.webUrls[0];
+  if (!listingUrl) return;
+  try {
+    const response = await axios.get<string>(listingUrl, { timeout: 20000, headers: { 'User-Agent': 'Mozilla/5.0 (compatible; MarketLens/1.0; +http://localhost)', 'Accept-Language': 'en-IN,en;q=0.9' } });
+    const $ = cheerio.load(response.data);
+    const table = $('table').filter((_index, element) => {
+      const text = $(element).text().toLowerCase();
+      return text.includes('target price') && text.includes('action');
+    }).first();
+    const headers = table.find('thead th').map((_index, cell) => $(cell).text().replace(/\s+/g, ' ').trim().toLowerCase()).get();
+    const companyIndex = tableColumnIndex(headers, [/company/, /stock/]);
+    const actionIndex = tableColumnIndex(headers, [/action/, /recommendation/]);
+    const targetIndex = tableColumnIndex(headers, [/target price/, /^target$/]);
+    const dateIndex = tableColumnIndex(headers, [/call date/, /^date$/]);
+    const brokerIndex = tableColumnIndex(headers, [/broker/]);
+    if (!table.length || [companyIndex, actionIndex, targetIndex, dateIndex].some((index) => index < 0) || (sourceType === 'brokerage' && brokerIndex < 0)) {
+      console.warn(`${publisher.name} structured table was not found or changed format.`);
+      return;
+    }
+    const rows = table.find('tbody tr').map((_index, row) => {
+      const cells = $(row).find('td');
+      const textAt = (index: number) => cells.eq(index).text().replace(/\s+/g, ' ').trim();
+      const company = textAt(companyIndex);
+      const recommendation = normalizeBrokerRating(textAt(actionIndex));
+      const targetPrice = Number(textAt(targetIndex).replace(/[^\d.]/g, ''));
+      const date = new Date(textAt(dateIndex));
+      const broker = sourceType === 'house' ? publisher.name : textAt(brokerIndex);
+      const href = $(row).find('a[href]').last().attr('href');
+      const url = href ? new URL(href, listingUrl).toString() : `${listingUrl}#${encodeURIComponent(`${company}-${broker}-${textAt(dateIndex)}`)}`;
+      return { company, recommendation, targetPrice, date, broker, url };
+    }).get().filter((row) => row.company && row.recommendation && row.targetPrice && row.broker && !Number.isNaN(row.date.getTime()));
+    console.log(`${publisher.name} structured scraper: discovered ${rows.length} recommendations`);
+    await processInBatches(rows.slice(0, 100), 6, async (row) => {
+      summary.webItems++;
+      try {
+        if (!row.recommendation) { summary.normalizationMisses++; return; }
+        const [stock, broker] = await Promise.all([resolveStock(null, row.company), resolveBroker(row.broker)]);
+        if (!stock || !broker) { summary.normalizationMisses++; return; }
+        let article = await Article.findOne({ url: row.url });
+        if (!article) {
+          article = await Article.create({ publisher: publisher._id, title: `${row.recommendation} ${row.company}; target ₹${row.targetPrice}: ${row.broker}`, url: row.url, publishedAt: row.date, processed: true });
+          summary.articlesAdded++;
+        }
+        const result = await saveRecommendation({ stockId: stock._id, brokerId: broker._id, articleId: article._id, symbol: stock.symbol, brokerName: broker.name, recommendation: row.recommendation, targetPrice: row.targetPrice, date: row.date, confidence: 1 });
+        await markStructuredRecommendationNews(article, stock._id, row.recommendation, row.targetPrice, broker.name);
+        if (result.created) summary.recommendationsCreated++; else summary.duplicates++;
+      } catch (error) { summary.errors++; console.error(`${publisher.name} recommendation failed: ${row.company}`, error); }
+    });
+  } catch (error) { summary.errors++; console.error(`${publisher.name} listing could not be scraped (${requestErrorMessage(error)})`); }
+}
 
 function parseTrendlyneRows(html: string, sourcePageUrl: string, fragment = false) {
   const $ = cheerio.load(fragment ? `<table>${html}</table>` : html);

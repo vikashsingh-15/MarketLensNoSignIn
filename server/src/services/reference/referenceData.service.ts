@@ -51,7 +51,7 @@ const publishers = [
     website: 'https://www.moneycontrol.com',
     enabled: true,
   },
-  { name: 'Mint', rssUrl: 'https://www.livemint.com/rss/markets', rssUrls: ['https://www.livemint.com/rss/markets'], webUrls: [], website: 'https://www.livemint.com/market', enabled: true },
+  { name: 'Mint', rssUrl: 'https://www.livemint.com/rss/markets', rssUrls: ['https://www.livemint.com/rss/markets'], webUrls: ['https://www.livemint.com/market/stocks-to-buy-coverage'], website: 'https://www.livemint.com/market', enabled: true },
   {
     name: 'BusinessLine',
     rssUrls: [
@@ -112,6 +112,8 @@ const publishers = [
     webUrls: [], website: 'https://www.marketwatch.com', enabled: true,
   },
   { name: 'Trendlyne', rssUrls: [], webUrls: ['https://trendlyne.com/research-reports/all/'], website: 'https://trendlyne.com', enabled: true },
+  { name: 'Business Standard', rssUrls: [], webUrls: ['https://www.business-standard.com/markets/research-report'], website: 'https://www.business-standard.com/markets', enabled: true },
+  { name: 'ICICI Direct', rssUrls: [], webUrls: ['https://www.icicidirect.com/research/equity/investing-ideas'], website: 'https://www.icicidirect.com/research/equity', enabled: true },
 ];
 
 export async function ensureReferenceData() {

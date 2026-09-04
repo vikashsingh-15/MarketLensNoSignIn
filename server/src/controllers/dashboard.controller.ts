@@ -1,11 +1,11 @@
 import type { Request, Response } from 'express';
 import { Recommendation } from '../models/Recommendation.js';
 import { Stock } from '../models/Stock.js';
-import { getStockAnalytics } from '../services/recommendation/analytics.service.js';
+import { getRecommendationMarketMood, getStockAnalytics } from '../services/recommendation/analytics.service.js';
 import { getMarketScanStatuses, startMarketScan } from '../services/rss/rss.service.js';
 import { getRecommendationDateRange } from '../utils/recommendationDate.js';
 import { addCalendarEventHints, type StockCarrier } from '../services/calendar/eventIndicator.service.js';
-import { getMarketMood, getMarketNewsHighlights } from '../services/news/newsSentiment.service.js';
+import { getMarketNewsHighlights } from '../services/news/newsSentiment.service.js';
 import { getCalendarRefreshStatus, startCalendarRefresh } from '../services/calendar/calendarRefresh.service.js';
 
 export async function dashboard(req: Request, res: Response) {
@@ -15,7 +15,7 @@ export async function dashboard(req: Request, res: Response) {
   const [rawAnalytics, recommendationsToday, stocksCovered, rawLatest, marketMood, marketNews] = await Promise.all([
     getStockAnalytics(undefined, dateRange), Recommendation.countDocuments({ recommendationDate: { $gte: start } }),
     Stock.countDocuments({ active: { $ne: false } }), Recommendation.find(recommendationFilter).sort({ recommendationDate: -1 }).limit(8).populate('stock broker').populate({ path: 'article', populate: { path: 'publisher' } }).populate({ path: 'articles', populate: { path: 'publisher' } }).lean(),
-    getMarketMood(),
+    getRecommendationMarketMood(),
     getMarketNewsHighlights(),
   ]);
   const [analytics, latest] = await Promise.all([
@@ -36,7 +36,7 @@ export async function dashboard(req: Request, res: Response) {
 }
 
 export async function marketMood(_req: Request, res: Response) {
-  res.json(await getMarketMood());
+  res.json(await getRecommendationMarketMood());
 }
 
 export function dashboardRefreshStatus(_req: Request, res: Response) {

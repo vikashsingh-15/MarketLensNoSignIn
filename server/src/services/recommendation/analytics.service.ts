@@ -9,6 +9,23 @@ export type StockAnalytics = {
   buyPercentage: number; holdPercentage: number; sellPercentage: number; averageTarget: number | null; medianTarget: number | null; consensus: 'BUY' | 'HOLD' | 'SELL';
 };
 
+export async function getRecommendationMarketMood(hours = 24) {
+  const since = new Date(Date.now() - Math.max(1, Math.min(hours, 24)) * 3_600_000);
+  const records = await Recommendation.find({ recommendationDate: { $gte: since } }).select('recommendation recommendationDate confidence').lean();
+  const counts = { BULLISH: 0, NEUTRAL: 0, BEARISH: 0 };
+  let score = 0; let totalWeight = 0;
+  for (const record of records) {
+    const label = record.recommendation === 'BUY' ? 'BULLISH' : record.recommendation === 'SELL' ? 'BEARISH' : 'NEUTRAL';
+    counts[label]++;
+    const ageHours = Math.max(0, (Date.now() - new Date(record.recommendationDate).getTime()) / 3_600_000);
+    const weight = Math.exp(-ageHours / 24) * Math.max(0.2, record.confidence || 0.5);
+    score += (label === 'BULLISH' ? 1 : label === 'BEARISH' ? -1 : 0) * weight;
+    totalWeight += weight;
+  }
+  const normalized = totalWeight ? Math.max(-1, Math.min(1, score / totalWeight)) : 0;
+  return { score: Number(normalized.toFixed(3)), index: Math.round((normalized + 1) * 50), label: normalized > 0.15 ? 'BULLISH' : normalized < -0.15 ? 'BEARISH' : 'NEUTRAL', counts, articleCount: records.length, rawArticleCount: records.length, windowHours: hours, asOf: new Date().toISOString() };
+}
+
 const percentage = (value: number, total: number) => total ? Math.round(value / total * 1000) / 10 : 0;
 const median = (values: number[]) => {
   if (!values.length) return null;
