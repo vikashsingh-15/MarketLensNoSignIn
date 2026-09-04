@@ -1,0 +1,12 @@
+import { Router } from 'express';
+import { getStock, listStocks, searchStocks, stockAdvancedMarketData, stockDataHealth, stockMarketData, stockNewsSentiment, stockRecommendations } from '../controllers/stock.controller.js';
+const router = Router();
+router.get('/', listStocks);
+router.get('/search', searchStocks);
+router.get('/data-health', stockDataHealth);
+router.get('/:symbol/market-data', stockMarketData);
+router.get('/:symbol/market-data/advanced', stockAdvancedMarketData);
+router.get('/:symbol/news-sentiment', stockNewsSentiment);
+router.get('/:symbol', getStock);
+router.get('/:symbol/recommendations', stockRecommendations);
+export default router;

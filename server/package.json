@@ -1,0 +1,39 @@
+{
+  "name": "marketlens-server",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "test": "tsc --outDir ../.codex-build/server --rootDir src && node --test ../.codex-build/server/services/stock/nseStock.service.test.js ../.codex-build/server/services/stock/normalization.service.test.js ../.codex-build/server/services/news/newsSentiment.service.test.js",
+    "build": "tsc",
+    "start": "node dist/server.js",
+    "init:data": "npm run build && node dist/setup/referenceData.js",
+    "ingest": "npm run build && node dist/jobs/runIngestion.js",
+    "calendar:ingest": "npm run build && node dist/jobs/runCalendarIngestion.js",
+    "strategies:scan": "npm run build && node dist/jobs/runStrategyScreen.js",
+    "stocks:sync": "npm run build && node dist/jobs/runStockMaster.js",
+    "clean:legacy-demo": "npm run build && node dist/setup/removeLegacyDemoData.js"
+  },
+  "dependencies": {
+    "@cerebras/cerebras_cloud_sdk": "^1.49.0",
+    "@extractus/article-extractor": "^8.1.0",
+    "agenda": "^5.0.0",
+    "axios": "^1.11.0",
+    "cheerio": "^1.1.2",
+    "cors": "^2.8.5",
+    "csv-parse": "^7.0.2",
+    "dotenv": "^17.2.1",
+    "express": "^5.1.0",
+    "mongoose": "^8.17.1",
+    "rss-parser": "^3.13.0",
+    "yahoo-finance2": "^4.0.2",
+    "zod": "^4.0.17"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.3",
+    "@types/node": "^24.2.1",
+    "tsx": "^4.20.3",
+    "typescript": "^5.9.2"
+  }
+}

@@ -1,0 +1,9 @@
+node_modules/
+dist/
+.codex-build/
+.env
+client/.env
+server/.env
+*.log
+*.tsbuildinfo
+.DS_Store

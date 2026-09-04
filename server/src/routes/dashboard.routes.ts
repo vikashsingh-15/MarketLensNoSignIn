@@ -1,0 +1,10 @@
+import { Router } from 'express';
+import { dashboard, dashboardRefreshStatus, hotStocks, marketMood, refreshMarketNews } from '../controllers/dashboard.controller.js';
+const router = Router();
+router.get('/', dashboard);
+router.get('/hot-stocks', hotStocks);
+router.get('/market-mood', marketMood);
+router.get('/refresh/status', dashboardRefreshStatus);
+router.post('/refresh', refreshMarketNews);
+router.post('/refresh/:scope', refreshMarketNews);
+export default router;
