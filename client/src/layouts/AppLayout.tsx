@@ -1,6 +1,6 @@
 import { BarChart3, Binoculars, BrainCircuit, CalendarDays, Flame, LayoutDashboard, Menu, Newspaper, ScanSearch, Search, X } from 'lucide-react';
-import { useState, type ReactNode } from 'react';
-import { NavLink } from 'react-router-dom';
+import { useState } from 'react';
+import { NavLink, Outlet } from 'react-router-dom';
 import { ThemeToggle } from '../components/ThemeToggle';
 
 const nav = [
@@ -10,7 +10,7 @@ const nav = [
   ['/strategy-screens', 'Strategy Screens', ScanSearch],
   ['/ai-signals', 'AI & Quant Signals', BrainCircuit],
 ] as const;
-export function AppLayout({ children }: { children: ReactNode }) {
+export function AppLayout() {
   const [open, setOpen] = useState(false);
   return <div className="app-shell">
     <aside className={`sidebar ${open ? 'open' : ''}`}>
@@ -19,7 +19,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
       <ThemeToggle label className="sidebar-theme-toggle"/>
     </aside>
     {open && <button className="backdrop" onClick={() => setOpen(false)} aria-label="Close menu"/>}
-    <main><header className="mobile-header"><button onClick={() => setOpen(true)} aria-label="Open menu"><Menu/></button><strong>MarketLens</strong><ThemeToggle className="mobile-theme-toggle"/></header><div className="content">{children}</div>
+    <main><header className="mobile-header"><button onClick={() => setOpen(true)} aria-label="Open menu"><Menu/></button><strong>MarketLens</strong><ThemeToggle className="mobile-theme-toggle"/></header><div className="content"><Outlet/></div>
     <footer>MarketLens aggregates publicly reported analyst and broker recommendations for informational purposes only. It does not provide personalized investment advice. Always verify information with the original source before making investment decisions.</footer></main>
   </div>;
 }

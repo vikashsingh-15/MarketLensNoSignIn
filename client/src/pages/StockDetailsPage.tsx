@@ -192,7 +192,7 @@ export function StockDetailsPage() {
     </section>
 
     <section className="panel advanced-panel">
-      <div className="panel-heading"><div><h2>Advanced &amp; Situational Metrics</h2><p>Fetched only when requested to keep normal stock and watchlist loading light</p></div>{!advanced && <button className="secondary-button" onClick={loadAdvanced} disabled={advancedLoading}><RefreshCw size={15} className={advancedLoading ? 'spin' : ''}/>{advancedLoading ? 'Loading…' : 'Load advanced metrics'}</button>}</div>
+        <div className="panel-heading"><div><h2>Advanced &amp; Situational Metrics</h2><p>Fetched only when requested to keep normal stock loading light</p></div>{!advanced && <button className="secondary-button" onClick={loadAdvanced} disabled={advancedLoading}><RefreshCw size={15} className={advancedLoading ? 'spin' : ''}/>{advancedLoading ? 'Loading…' : 'Load advanced metrics'}</button>}</div>
       {advancedError && <div className="inline-error">{advancedError}</div>}
       {advanced && <div className="quality-grid advanced-grid">
         <QualityCard label="EV / EBITDA" value={ratio(advanced.enterpriseToEbitda)} description="Debt-aware valuation for cross-company comparisons."/>
