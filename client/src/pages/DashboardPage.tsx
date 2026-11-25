@@ -38,6 +38,7 @@ const sourceDate = (value: string | null) => value
 
 export function DashboardPage() {
   const [data, setData] = useState<DashboardData | null>(null);
+  const [dashboardError, setDashboardError] = useState('');
   const [refreshingSections, setRefreshingSections] = useState<RefreshSection[]>([]);
   const [syncMessage, setSyncMessage] = useState('');
   const [syncError, setSyncError] = useState('');
@@ -46,8 +47,13 @@ export function DashboardPage() {
   const [focus, setFocus] = useState<CalendarFocus | null>(null);
 
   const loadDashboard = useCallback(async () => {
-    const response = await api.get('/dashboard', { params: { ...dateRangeParams(dateRange), eventDate: focusDate } });
-    setData(response.data);
+    try {
+      const response = await api.get('/dashboard', { params: { ...dateRangeParams(dateRange), eventDate: focusDate } });
+      setData(response.data);
+      setDashboardError('');
+    } catch (error: unknown) {
+      setDashboardError(getApiErrorMessage(error, 'Could not connect to the MarketLens API. Check that the backend is running and VITE_API_URL points to it.'));
+    }
   }, [dateRange, focusDate]);
 
   const loadFocus = useCallback(async () => {
@@ -128,6 +134,7 @@ export function DashboardPage() {
   const isRefreshing = (section: RefreshSection) => refreshingSections.includes(section);
   const refreshButton = (section: RefreshSection) => <button type="button" className="panel-refresh-button" onClick={() => void startRefresh(section)} disabled={isRefreshing(section)}><RefreshCw size={13} className={isRefreshing(section) ? 'spin' : ''}/>{isRefreshing(section) ? 'Updating…' : 'Refresh'}</button>;
 
+  if (!data && dashboardError) return <div className="loading-error"><h1>Dashboard unavailable</h1><p>{dashboardError}</p><button type="button" className="sync-button" onClick={() => void loadDashboard()}><RefreshCw size={16}/>Try again</button></div>;
   if (!data) return <Loading/>;
   const latestCallDate = sourceDate(data.freshness.latestRecommendationDate);
   const recommendationListUrl = (recommendation?: 'BUY' | 'SELL', todayOnly = false) => {
